@@ -5,7 +5,7 @@ app.use(express.json());
 
 
 var mysql = require('mysql');
-const { Console } = require('console');
+const { Console, log } = require('console');
 // Connection 객체 생성 
 var connection = mysql.createConnection({
   host: 'localhost',
@@ -24,21 +24,120 @@ connection.connect(function (err) {
   } 
 });
 
+//페이징
+let ipp = 10;
+let totalCount = 0;
+let block = 10;
+let total_page = 0;
+let page = 1;
+let start = 0;
+let end = ipp;
+let start_page = 1;
+let end_page = block;
+let where = "";
+let start_row = "";
 
 
-/* GET users listing. */
-// router.get('/', function(req, res, next) {
-//   res.send('respond with a resource');
-// });
+//카운트를 세고, page에 데이터를 넣어서 한번더 상세페이지 api를 불러와야 한다.
+
+//카운트
+router.post('/selectBoardCount/:flag', function (req, res) {
+  const board = {
+    'flag': req.body.board.flag,
+    'searchValue': req.body.board.searchValue,
+    'searchKey': req.body.board.searchKey,
+    'page': req.body.board.page,
+    'totalCount': req.body.board.totalCount,
+  };
+  console.log('board.selectBoardCount=== flag' , board.flag)
+  console.log('board.selectBoardCount=== searchValue' , board.searchValue)
+  console.log('board.selectBoardCount=== searchKey' , board.searchKey)
+  console.log('board.selectBoardCount=== page' , board.page)
+  console.log('board.selectBoardCount=== totalCount' , board.totalCount)
+  if(board.searchKey == 'title' && board.searchValue != undefined){
+    connection.query('SELECT count(1) as cnt FROM tb_board where flag = "'+req.params.flag + '" and title LIKE CONCAT("%", "'+board.searchValue + '","%") ORDER BY fid DESC,stp ASC', function (err, rows) {
+      console.log('타이틀 카운트 개수')
+      if (err) throw err;
+      res.send(rows);
+    });
+  }else if(board.searchKey == 'content' && board.searchValue != undefined){
+    connection.query('SELECT count(1) as cnt FROM tb_board where flag = "'+req.params.flag + '" and content LIKE CONCAT("%", "'+board.searchValue + '","%")  ORDER BY fid DESC,stp ASC', function (err, rows) {
+      console.log('컨텐츠 카운트 개수')
+      if (err) throw err;
+      res.send(rows);
+    });
+  }else{
+    connection.query('SELECT count(1) as cnt FROM tb_board where flag = "'+req.params.flag + '" ORDER BY fid DESC,stp ASC', function (err, rows) {
+      console.log('페이징이랑 그냥 목록 개수')
+      if (err) throw err;
+      res.send(rows);
+    });
+  }
+});
+
 
 //리스트
 router.post('/boardList/:flag', function (req, res) {
-  console.log('board.boardList=== flag' , req.params.flag)
-  connection.query('SELECT * FROM tb_board where flag = "'+req.params.flag + '" ORDER BY fid DESC,stp ASC', function (err, rows) {
-    if (err) throw err;
-    res.send(rows);
-  });
+  const board = {
+    'flag': req.body.board.flag,
+    'searchValue': req.body.board.searchValue,
+    'searchKey': req.body.board.searchKey,
+    'page': req.body.board.page,
+    'totalCount': req.body.board.totalCount,
+  };
+  console.log('=======boardList=========board.searchValue',board.searchValue)
+  console.log('=======boardList=========board.searchKey',board.searchKey)
+  console.log('=======boardList=========board.totalCount',board.totalCount)
+  console.log('=======boardList=========board.page',page)
+
+
+  totalCount = board.totalCount;
+  total_page = Math.ceil(totalCount / ipp);    //math.ceil이 먹히지가 않음.;
+  if(board.page) page = board.page;
+  start = (page - 1) * 10;
+  start_page = Math.ceil(page / block);
+  end_page = start_page * block;
+  if(total_page < end_page) end_page = total_page;
+  start_row = (page -1) * ipp
+
+  let paging = {
+    "totalCount":totalCount
+    ,"total_page": total_page
+    ,"page":page
+    ,"start_page":start_page
+    ,"end_page":end_page
+    ,"ipp":ipp
+    ,"start_row":start_row
+  }
+
+  if(board.searchKey == 'title' && board.searchValue != undefined){
+    connection.query('SELECT count(1) as cnt FROM tb_board where flag = "'+req.params.flag + '" and title LIKE CONCAT("%", "'+board.searchValue + '","%") ORDER BY fid DESC,stp ASC', function (err, rows){
+      console.log('리스트 타이틀 API')
+      connection.query('SELECT * FROM tb_board where flag = "'+req.params.flag + '" and title LIKE CONCAT("%", "'+board.searchValue + '","%") ORDER BY fid DESC,stp ASC', function (err, rows) {
+        if (err) throw err;
+        res.send({rows,paging});
+      });
+    })   
+  }else if(board.searchKey == 'content' && board.searchValue != undefined){
+    connection.query('SELECT count(1) as cnt FROM tb_board where flag = "'+req.params.flag + '" and content LIKE CONCAT("%", "'+board.searchValue + '","%") ORDER BY fid DESC,stp ASC', function (err, rows){
+      console.log('리스트 컨텐츠 API')
+      connection.query('SELECT * FROM tb_board where flag = "'+req.params.flag + '" and content LIKE CONCAT("%", "'+board.searchValue + '","%")  ORDER BY fid DESC,stp ASC', function (err, rows) {
+        if (err) throw err;
+        res.send({rows,paging});
+      });
+    })
+  }else{
+    connection.query('SELECT count(1) as cnt FROM tb_board where flag = "'+req.params.flag + '" ORDER BY fid DESC,stp ASC', function (err, rows){
+      console.log('그냥 리스트 API', board.totalCount)
+      connection.query('SELECT * FROM tb_board where flag = "'+req.params.flag + '" ORDER BY fid DESC,stp ASC limit '+ paging.start_row +', '+ paging.ipp +' ', function (err, rows) {
+        if (err) throw err;
+        // res.send(rows);
+        res.send({rows,paging});
+      });
+    })
+  }
 });
+
 
 //등록할 때 필요한 get fid(그룹아이디)의 최신번호 가져오기
 router.post('/selectBoardFid/:flag', function (req, res) {
