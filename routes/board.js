@@ -25,7 +25,7 @@ connection.connect(function (err) {
 });
 
 //페이징
-let ipp = 10;
+let ipp = 15;
 let totalCount = 0;
 let block = 10;
 let total_page = 0;
@@ -90,16 +90,16 @@ router.post('/boardList/:flag', function (req, res) {
   console.log('=======boardList=========board.totalCount',board.totalCount)
   console.log('=======boardList=========board.page',page)
 
-
-  totalCount = board.totalCount;
-  total_page = Math.ceil(totalCount / ipp);    //math.ceil이 먹히지가 않음.;
-  if(board.page) page = board.page;
+  totalCount = board.totalCount;  //16
+  total_page = Math.ceil(totalCount / ipp);    //페이지 개수
+  if(board.page) page = board.page;  //사용자가 선택한 페이지번호
   start = (page - 1) * 10;
   start_page = Math.ceil(page / block);
   end_page = start_page * block;
   if(total_page < end_page) end_page = total_page;
   start_row = (page -1) * ipp
 
+  
   let paging = {
     "totalCount":totalCount
     ,"total_page": total_page
@@ -113,7 +113,7 @@ router.post('/boardList/:flag', function (req, res) {
   if(board.searchKey == 'title' && board.searchValue != undefined){
     connection.query('SELECT count(1) as cnt FROM tb_board where flag = "'+req.params.flag + '" and title LIKE CONCAT("%", "'+board.searchValue + '","%") ORDER BY fid DESC,stp ASC', function (err, rows){
       console.log('리스트 타이틀 API')
-      connection.query('SELECT * FROM tb_board where flag = "'+req.params.flag + '" and title LIKE CONCAT("%", "'+board.searchValue + '","%") ORDER BY fid DESC,stp ASC', function (err, rows) {
+      connection.query('SELECT * FROM tb_board where flag = "'+req.params.flag + '" and title LIKE CONCAT("%", "'+board.searchValue + '","%") ORDER BY fid DESC,stp ASC limit '+ paging.start_row +', '+ paging.ipp +' ', function (err, rows) {
         if (err) throw err;
         res.send({rows,paging});
       });
@@ -121,7 +121,7 @@ router.post('/boardList/:flag', function (req, res) {
   }else if(board.searchKey == 'content' && board.searchValue != undefined){
     connection.query('SELECT count(1) as cnt FROM tb_board where flag = "'+req.params.flag + '" and content LIKE CONCAT("%", "'+board.searchValue + '","%") ORDER BY fid DESC,stp ASC', function (err, rows){
       console.log('리스트 컨텐츠 API')
-      connection.query('SELECT * FROM tb_board where flag = "'+req.params.flag + '" and content LIKE CONCAT("%", "'+board.searchValue + '","%")  ORDER BY fid DESC,stp ASC', function (err, rows) {
+      connection.query('SELECT * FROM tb_board where flag = "'+req.params.flag + '" and content LIKE CONCAT("%", "'+board.searchValue + '","%")  ORDER BY fid DESC,stp ASC limit '+ paging.start_row +', '+ paging.ipp +' ', function (err, rows) {
         if (err) throw err;
         res.send({rows,paging});
       });
